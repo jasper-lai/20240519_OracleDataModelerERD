@@ -1,0 +1,163 @@
+﻿<body>
+    <div style="font-size: medium;">
+        <!-- <h1 id="如何利用-oracle-sql-developer-data-modeler-由資料庫產生-er-圖">如何利用 Oracle SQL Developer Data Modeler 由資料庫產生 ER 圖</h1> -->
+        <h2 id="how-to-generate-er-diagram-from-existing-db-by-oracle-sql-developer-data-modeler">How to generate ER diagram from existing DB by Oracle SQL Developer Data Modeler</h2>
+        <h2 id="前言">前言</h2>
+        <p>最近專案的資料庫為 Oracle, 部份 table 是由客戶自行設計及管理, 並沒有什麼明確的文件可供參考, 不清楚 table 之間的關聯性.</p>
+        <p>經上網查詢, 發現 Oracle SQL Developer Data Modeler 可由現行資料庫的結構, 反轉為 ER 圖的功能, 可以看出 table 的關聯性, 故演練一下, 並作成筆記.</p>
+        <p>當然, <strong>table 之間必須要建立 Primary Key, Foreign Key 的關聯, 否則轉出的 ER 圖, 其效果不大</strong>.</p>
+        <!-- more -->
+        <h2 id="環境">環境</h2>
+        <p>參考 <a href="https://www.jasperstudy.com/2024/03/oracle-cdb-pdb.html" target="_blank">Oracle 的容器資料庫(CDB) 與 可拔插資料庫(PDB)</a> 建置 Oracle 的測試環境, 並執行以下 SQL 指令, 建立測試資料.<br />
+            1.. 移除 View / Table</p>
+        <pre><code class="language-sql">BEGIN
+   EXECUTE IMMEDIATE 'DROP VIEW vwProducts';
+EXCEPTION
+   WHEN OTHERS THEN
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Products';
+EXCEPTION
+   WHEN OTHERS THEN
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
+END;
+/
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Categories';
+EXCEPTION
+   WHEN OTHERS THEN
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
+END;
+/
+</code></pre>
+        <p>2.. 建立 Table / View</p>
+        <pre><code class="language-sql">-- ===========================
+-- Create Table / View
+-- ===========================
+-- Creating the Categories Table
+CREATE TABLE Categories
+(
+  Id     INT PRIMARY KEY,
+  Name   NVARCHAR2(30) NOT NULL
+);
+/
+-- Creating the Products Table
+CREATE TABLE Products
+(
+  Id        INT PRIMARY KEY,
+  Name      NVARCHAR2(30) NOT NULL,
+  Category  INT NOT NULL,
+  Price     INT NOT NULL,
+  CONSTRAINT FK_Categories FOREIGN KEY (Category)
+      REFERENCES Categories (Id)
+);
+/
+-- Creating the vwProducts View
+CREATE VIEW vwProducts AS
+SELECT  P.*, C.Name AS CategoryName
+FROM    Products P
+LEFT JOIN Categories C ON (P.Category = C.Id);
+/
+</code></pre>
+        <p>3.. 建立測試資料</p>
+        <pre><code class="language-sql">-- 當使用 INSERT ALL 語句進行多筆插入時, 需要在最後加上 SELECT * FROM DUAL 是為了正確結束 INSERT ALL語句. 
+-- 這是 Oracle 進行多筆插入的慣用法.
+
+-- Inserting into Categories
+INSERT ALL
+   INTO Categories (Id, Name) VALUES (1, '餅乾類')
+   INTO Categories (Id, Name) VALUES (2, '蛋糕類')
+   INTO Categories (Id, Name) VALUES (3, '奶酪類')
+SELECT * FROM dual;
+/
+-- Inserting into Products
+INSERT ALL
+   INTO Products (Id, Name, Category, Price) VALUES (1, '夏威夷豆塔', 1, 50)
+   INTO Products (Id, Name, Category, Price) VALUES (2, '堅果塔', 1, 55)
+   INTO Products (Id, Name, Category, Price) VALUES (3, '養生堅果', 1, 60)
+   INTO Products (Id, Name, Category, Price) VALUES (4, '乳酪塔', 1, 60)
+   INTO Products (Id, Name, Category, Price) VALUES (5, '檸檬塔', 1, 60)
+   INTO Products (Id, Name, Category, Price) VALUES (6, '草莓塔', 1, 65)
+   INTO Products (Id, Name, Category, Price) VALUES (7, '輕乳酪蛋糕(片)', 2, 65)
+   INTO Products (Id, Name, Category, Price) VALUES (8, '重乳酪蛋糕(片)', 2, 70)
+   INTO Products (Id, Name, Category, Price) VALUES (9, '抹茶奶酪', 3, 90)
+   INTO Products (Id, Name, Category, Price) VALUES (10, '草莓奶酪', 3, 85)
+   INTO Products (Id, Name, Category, Price) VALUES (11, '芒果奶酪', 3, 85)
+   INTO Products (Id, Name, Category, Price) VALUES (12, '紅豆奶酪', 3, 80)
+SELECT * FROM dual;
+/
+COMMIT;
+/
+</code></pre>
+        <h2 id="作法">作法</h2>
+        <p>1.. [匯入] / [資料字典].<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/01-import_data_dictionary.png?raw=true" alt="01 import_data_dictionary" /></p>
+        <p>2.. 選取連線.<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/02-db_connection.png?raw=true" alt="02 db_connection" /><br />
+            註: 如果沒有資料庫連線, 則要自行按 [新增] 建立一個.</p>
+        <p>3.. 選取 Schema.<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/03-user_schema.png?raw=true" alt="03 user_schema" /></p>
+        <p>4.. 選取 Table.<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/04-tables.png?raw=true" alt="04 tables" /></p>
+        <p>5.. 選取 [完成].<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/05-complete.png?raw=true" alt="05 complete" /></p>
+        <p>6.. 日誌的部份, 若不需要, 直接按 [關閉].<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/06-ignore_log.png?raw=true" alt="06 ignore_log" /></p>
+        <p>7.. 呈現 ER Model.<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/07-erd_generated.png?raw=true" alt="07 erd_generated" /></p>
+        <p>8.. 改一下 model 的名稱.<br />
+            由 &quot;Relational_1&quot; 改為 &quot;CookiesModel_1&quot;<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/08-1-change_erd_name.png?raw=true" alt="08 1 change_erd_name" /><br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/08-2-change_erd_name.png?raw=true" alt="08 2 change_erd_name" /></p>
+        <p>9.. 匯出為 影像檔案.<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/09-1-save_to_image.png?raw=true" alt="09 1 save_to_image" /></p>
+        <p>選擇存為 PNG 檔<br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/09-2-save_to_image.png?raw=true" alt="09 2 save_to_image" /></p>
+        <p>10.. 將設計存檔, 以供後續使用.<br />
+            會存成一個 .dmd 的檔案, 是一個 xml 檔案, 細節不是很清楚, 但至少知道要存檔, 後續才能再叫出來使用.</p>
+        <p><img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/10-1-save_design.png?raw=true" alt="10 1 save_design" /><br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/10-2-save_design.png?raw=true" alt="10 2 save_design" /></p>
+        <pre><code>&lt;?xml version = '1.0' encoding = 'UTF-8'?&gt;
+&lt;OSDM_Design class=&quot;oracle.dbtools.crest.model.design.Design&quot; name=&quot;Cookies&quot; id=&quot;F1C4712A-480B-A8D9-A349-67722CF5B6F6&quot; version=&quot;3.5&quot;&gt;
+&lt;createdBy&gt;jasperlai&lt;/createdBy&gt;
+&lt;createdTime&gt;2024-05-15 02:53:03 UTC&lt;/createdTime&gt;
+&lt;ownerDesignName&gt;Cookies&lt;/ownerDesignName&gt;
+&lt;capitalNames&gt;false&lt;/capitalNames&gt;
+&lt;designId&gt;F1C4712A-480B-A8D9-A349-67722CF5B6F6&lt;/designId&gt;
+&lt;/OSDM_Design&gt;
+</code></pre>
+        <p>11.. 開啟設計.</p>
+        <p><img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/11-1-open_design.png?raw=true" alt="11 1 open_design" /><br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/11-2-open_design.png?raw=true" alt="11 2 open_design" /><br />
+            <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/11-3-open_design.png?raw=true" alt="11 3 open_design" /></p>
+        <h2 id="參考文件">參考文件</h2>
+        <ul>
+            <li>
+                <p><a href="https://www.oracle.com/database/sqldeveloper/technologies/download/" target="_blank">Oracle SQL Developer 下載</a></p>
+            </li>
+            <li>
+                <p><a href="https://marketplace.visualstudio.com/items?itemName=Oracle.sql-developer" target="_blank">Oracle SQL Developer Extension for VSCode 下載</a></p>
+            </li>
+        </ul>
+        <blockquote>
+            <p>筆者在使用 Oracle SQL Developer 時, 中文會是亂碼, 參考一些網路上的方法, 但並未解決. 後來發現 VS Code 有這個 extension, 在 VS Code 執行, 中文就正常了.<br />
+                <img src="https://github.com/jasper-lai/20240519_OracleDataModelerERD/blob/master/pictures/A1-oracle_extension_vscode.png?raw=true" alt="A1 oracle_extension_vscode" /></p>
+        </blockquote>
+        <ul>
+            <li>
+                <p><a href="https://www.oracle.com/database/sqldeveloper/technologies/sql-data-modeler/download/" target="_blank">Oracle SQL Developer Data Modeler 下載</a></p>
+            </li>
+            <li>
+                <p><a href="https://holowczak.com/reverse-engineer-a-data-model-oracle-sql-developer/" target="_blank">(2015.09) Reverse Engineering a Data Model using Oracle SQL Developer</a></p>
+            </li>
+        </ul>
+    </div>
+</body>
